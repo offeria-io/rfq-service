@@ -6,8 +6,8 @@ Status reflects the platform plan, not marketing claims.
 
 | Package | Scope | Status |
 |---|---|---|
-| P01 | Architecture & Platform Contracts | In progress — architecture baseline merged; documentation/contracts being completed |
-| P02 | Security, Gateway & Access Control | Backlog |
+| P01 | Architecture & Platform Contracts | Done |
+| P02 | Security, Gateway & Access Control | Done — baseline security complete; service-specific boundaries continue in owning packages |
 | P03 | Client, Project, Contract & Offer Registry | Backlog |
 | P04 | RFQ Intake, Extraction & Validation | Backlog |
 | P05 | RFQ Lifecycle & Item Management | Backlog |
@@ -32,7 +32,7 @@ The dedicated MCP server exposes approved Material capabilities without direct d
 ## Known platform gaps
 
 - Spring Boot/Spring Cloud version drift.
-- Prototype API Gateway routes and misplaced gateway business persistence.
+- Service-specific authorization boundaries remain to be completed as their owning services are implemented.
 - Automatic Hibernate schema mutation in several services.
 - Development/default credentials that must not become production secrets.
 - RFQ domain lacks the full target lifecycle and item model.
