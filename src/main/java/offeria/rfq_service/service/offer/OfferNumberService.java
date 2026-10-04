@@ -1,0 +1,36 @@
+package offeria.rfq_service.service.offer;
+
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class OfferNumberService {
+
+    private static final String OFFER_PREFIX = "Offer#";
+
+    private final EntityManager entityManager;
+
+    @Transactional
+    public long allocateNextNumber() {
+        Number value = (Number) entityManager
+                .createNativeQuery(
+                        "SELECT nextval('offer_number_seq')"
+                )
+                .getSingleResult();
+
+        return value.longValue();
+    }
+
+    public String format(long offerNumber) {
+        if (offerNumber < 1) {
+            throw new IllegalArgumentException(
+                    "Offer number must be greater than zero"
+            );
+        }
+
+        return OFFER_PREFIX + offerNumber;
+    }
+}
