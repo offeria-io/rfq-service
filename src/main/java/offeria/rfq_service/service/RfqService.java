@@ -2,95 +2,232 @@ package offeria.rfq_service.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import offeria.rfq_service.domain.entity.AttentionContact;
+import offeria.rfq_service.domain.entity.Client;
+import offeria.rfq_service.domain.entity.Contract;
+import offeria.rfq_service.domain.entity.Project;
 import offeria.rfq_service.domain.entity.Rfq;
+import offeria.rfq_service.domain.entity.WorkLocation;
 import offeria.rfq_service.messaging.RfqProducer;
+import offeria.rfq_service.repository.AttentionContactRepository;
+import offeria.rfq_service.repository.ClientRepository;
+import offeria.rfq_service.repository.ContractRepository;
+import offeria.rfq_service.repository.ProjectRepository;
 import offeria.rfq_service.repository.RfqRepository;
+import offeria.rfq_service.repository.WorkLocationRepository;
+import offeria.rfq_service.service.offer.OfferFolderNameService;
+import offeria.rfq_service.service.offer.OfferNumberService;
 import offeria.rfq_service.web.dto.RfqRequest;
 import offeria.rfq_service.web.dto.RfqResponse;
 import offeria.rfq_service.web.mapper.RfqMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-/**
- * Service for managing RFQ business logic.
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class RfqService {
 
+    private static final String INITIAL_STATUS = "PENDING";
+
     private final RfqRepository rfqRepository;
+    private final ClientRepository clientRepository;
+    private final ProjectRepository projectRepository;
+    private final ContractRepository contractRepository;
+    private final WorkLocationRepository workLocationRepository;
+    private final AttentionContactRepository attentionContactRepository;
+
+    private final OfferNumberService offerNumberService;
+    private final OfferFolderNameService offerFolderNameService;
+
     private final RfqMapper rfqMapper;
     private final RfqProducer rfqProducer;
 
-    /**
-     * Creates a new RFQ, generates metadata, and publishes an event.
-     * @param request Creation data.
-     * @return Created RFQ response.
-     */
     @Transactional
     public RfqResponse createRfq(RfqRequest request) {
-        log.info("Creating new RFQ with title: {}", request.getTitle());
+        String rfqNumber = normalizeRequired(
+                request.getRfqNumber(),
+                "RFQ number"
+        );
 
-        Rfq rfq = rfqMapper.toEntity(request);
-        
-        // Automatic generation logic
-        rfq.setOfferNumber(generateOfferNumber());
-        rfq.setFolderName(generateFolderName(rfq.getOfferNumber(), rfq.getClientName()));
-        rfq.setStatus("PENDING");
+        String title = normalizeRequired(
+                request.getTitle(),
+                "Title"
+        );
+
+        Client client = clientRepository
+                .findById(request.getClientId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Client not found: " + request.getClientId()
+                ));
+
+        Project project = projectRepository
+                .findByIdAndClientId(
+                        request.getProjectId(),
+                        client.getId()
+                )
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Project does not belong to client"
+                ));
+
+        Contract contract = resolveContract(
+                request.getContractId(),
+                project.getId()
+        );
+
+        WorkLocation workLocation = resolveWorkLocation(
+                request.getWorkLocationId(),
+                project.getId()
+        );
+
+        AttentionContact attentionContact =
+                resolveAttentionContact(
+                        request.getAttentionContactId(),
+                        client.getId()
+                );
+
+        if (rfqRepository.existsByClientIdAndRfqNumberIgnoreCase(
+                client.getId(),
+                rfqNumber
+        )) {
+            throw new IllegalArgumentException(
+                    "RFQ number already exists for client: "
+                            + rfqNumber
+            );
+        }
+
+        long allocatedOfferNumber =
+                offerNumberService.allocateNextNumber();
+
+        String offerNumber =
+                offerNumberService.format(allocatedOfferNumber);
+
+        String folderName =
+                offerFolderNameService.generate(
+                        allocatedOfferNumber,
+                        project.getCode(),
+                        rfqNumber,
+                        title
+                );
+
+        Rfq rfq = Rfq.builder()
+                .rfqNumber(rfqNumber)
+                .offerNumber(offerNumber)
+                .title(title)
+                .clientName(client.getNameEn())
+                .client(client)
+                .project(project)
+                .contract(contract)
+                .workLocation(workLocation)
+                .attentionContact(attentionContact)
+                .folderName(folderName)
+                .status(INITIAL_STATUS)
+                .build();
 
         Rfq savedRfq = rfqRepository.save(rfq);
-        RfqResponse response = rfqMapper.toResponse(savedRfq);
 
-        // Publish event to Kafka
+        RfqResponse response =
+                rfqMapper.toResponse(savedRfq);
+
+        log.info(
+                "Created RFQ {} with offer number {}",
+                savedRfq.getRfqNumber(),
+                savedRfq.getOfferNumber()
+        );
+
         rfqProducer.publishRfqCreated(response);
 
         return response;
     }
 
-    /**
-     * Gets all RFQs.
-     * @return List of RFQ responses.
-     */
     @Transactional(readOnly = true)
     public List<RfqResponse> getAllRfqs() {
-        return rfqRepository.findAll().stream()
+        return rfqRepository.findAll()
+                .stream()
                 .map(rfqMapper::toResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    /**
-     * Gets RFQ by ID.
-     * @param id RFQ ID.
-     * @return RFQ response.
-     */
     @Transactional(readOnly = true)
     public RfqResponse getRfqById(UUID id) {
-        Rfq rfq = rfqRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("RFQ not found with ID: " + id));
+        Rfq rfq = rfqRepository
+                .findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "RFQ not found with ID: " + id
+                ));
+
         return rfqMapper.toResponse(rfq);
     }
 
-    /**
-     * Generates a unique offer number: OFF-YYYYMMDD-COUNT
-     */
-    private String generateOfferNumber() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        long count = rfqRepository.count() + 1;
-        return String.format("OFF-%s-%04d", datePart, count);
+    private Contract resolveContract(
+            UUID contractId,
+            UUID projectId
+    ) {
+        if (contractId == null) {
+            return null;
+        }
+
+        return contractRepository
+                .findByIdAndProjectId(
+                        contractId,
+                        projectId
+                )
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Contract does not belong to project"
+                ));
     }
 
-    /**
-     * Generates a structured folder name: [OFFER_NUMBER]_[CLIENT_NAME]
-     */
-    private String generateFolderName(String offerNumber, String clientName) {
-        String cleanClientName = clientName.replaceAll("[^a-zA-Z0-9]", "_");
-        return String.format("%s_%s", offerNumber, cleanClientName);
+    private WorkLocation resolveWorkLocation(
+            UUID workLocationId,
+            UUID projectId
+    ) {
+        if (workLocationId == null) {
+            return null;
+        }
+
+        return workLocationRepository
+                .findByIdAndProjectId(
+                        workLocationId,
+                        projectId
+                )
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Work location does not belong to project"
+                ));
+    }
+
+    private AttentionContact resolveAttentionContact(
+            UUID attentionContactId,
+            UUID clientId
+    ) {
+        if (attentionContactId == null) {
+            return null;
+        }
+
+        return attentionContactRepository
+                .findByIdAndClientId(
+                        attentionContactId,
+                        clientId
+                )
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Attention contact does not belong to client"
+                ));
+    }
+
+    private String normalizeRequired(
+            String value,
+            String fieldName
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    fieldName + " is required"
+            );
+        }
+
+        return value
+                .trim()
+                .replaceAll("\\s+", " ");
     }
 }
