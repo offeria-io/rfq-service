@@ -24,6 +24,22 @@ public class OfferNumberService {
         return value.longValue();
     }
 
+    @Transactional
+    public void initializeNextNumber(long nextOfferNumber) {
+        if (nextOfferNumber < 1) {
+            throw new IllegalArgumentException(
+                    "Next offer number must be greater than zero"
+            );
+        }
+
+        entityManager
+                .createNativeQuery(
+                        "SELECT setval('offer_number_seq', :value, false)"
+                )
+                .setParameter("value", nextOfferNumber)
+                .getSingleResult();
+    }
+
     public String format(long offerNumber) {
         if (offerNumber < 1) {
             throw new IllegalArgumentException(

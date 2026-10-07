@@ -90,4 +90,45 @@ class OfferNumberServiceTest {
                 () -> offerNumberService.format(-1)
         );
     }
+
+    @Test
+    void initializeNextNumberShouldSetSequenceBaseline() {
+        when(entityManager.createNativeQuery(
+                "SELECT setval('offer_number_seq', :value, false)"
+        )).thenReturn(query);
+
+        when(query.setParameter("value", 3198L))
+                .thenReturn(query);
+
+        when(query.getSingleResult())
+                .thenReturn(3198L);
+
+        offerNumberService.initializeNextNumber(3198L);
+
+        verify(entityManager).createNativeQuery(
+                "SELECT setval('offer_number_seq', :value, false)"
+        );
+
+        verify(query).setParameter(
+                "value",
+                3198L
+        );
+
+        verify(query).getSingleResult();
+    }
+
+    @Test
+    void initializeNextNumberShouldRejectInvalidBaseline() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> offerNumberService.initializeNextNumber(0)
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> offerNumberService.initializeNextNumber(-1)
+        );
+
+        verifyNoInteractions(entityManager);
+    }
 }
