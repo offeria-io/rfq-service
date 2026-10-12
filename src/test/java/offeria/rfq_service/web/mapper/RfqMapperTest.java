@@ -2,6 +2,7 @@ package offeria.rfq_service.web.mapper;
 
 import offeria.rfq_service.domain.entity.Rfq;
 import offeria.rfq_service.domain.enums.IntakeSource;
+import offeria.rfq_service.domain.enums.IntakeStatus;
 import offeria.rfq_service.web.dto.RfqResponse;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
@@ -19,6 +20,7 @@ class RfqMapperTest {
                 .rfqNumber("RFQ-001")
                 .clientName("CPECC")
                 .intakeSource(IntakeSource.MANUAL)
+                .intakeStatus(IntakeStatus.PENDING_REVIEW)
                 .build();
 
         RfqResponse response = mapper.toResponse(rfq);
@@ -26,6 +28,11 @@ class RfqMapperTest {
         assertEquals(
                 IntakeSource.MANUAL,
                 response.getIntakeSource()
+        );
+
+        assertEquals(
+                IntakeStatus.PENDING_REVIEW,
+                response.getIntakeStatus()
         );
     }
 
