@@ -22,7 +22,7 @@ public interface RfqMapper {
     )
     @Mapping(
             target = "clientName",
-            source = "client.nameEn"
+            source = "clientName"
     )
     @Mapping(
             target = "projectId",

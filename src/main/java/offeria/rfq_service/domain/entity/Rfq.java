@@ -1,6 +1,7 @@
 package offeria.rfq_service.domain.entity;
 
 import jakarta.persistence.*;
+import offeria.rfq_service.domain.enums.IntakeSource;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -95,6 +96,11 @@ public class Rfq {
             length = 500
     )
     private String folderName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "intake_source", nullable = false, length = 20)
+    @Builder.Default
+    private IntakeSource intakeSource = IntakeSource.MANUAL;
 
     @Column(nullable = false, length = 50)
     private String status;
