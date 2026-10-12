@@ -1,5 +1,7 @@
 package offeria.rfq_service.web.dto;
 
+import offeria.rfq_service.domain.enums.IntakeSource;
+import offeria.rfq_service.domain.enums.IntakeStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +15,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RfqResponse {
+
+    private IntakeSource intakeSource;
+    private IntakeStatus intakeStatus;
 
     private UUID id;
 

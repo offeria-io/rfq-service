@@ -7,6 +7,8 @@ import offeria.rfq_service.domain.entity.Client;
 import offeria.rfq_service.domain.entity.Contract;
 import offeria.rfq_service.domain.entity.Project;
 import offeria.rfq_service.domain.entity.Rfq;
+import offeria.rfq_service.domain.enums.IntakeSource;
+import offeria.rfq_service.domain.enums.IntakeStatus;
 import offeria.rfq_service.domain.entity.WorkLocation;
 import offeria.rfq_service.messaging.RfqProducer;
 import offeria.rfq_service.repository.AttentionContactRepository;
@@ -124,6 +126,8 @@ public class RfqService {
                 .workLocation(workLocation)
                 .attentionContact(attentionContact)
                 .folderName(folderName)
+                .intakeSource(IntakeSource.MANUAL)
+                .intakeStatus(IntakeStatus.PENDING_REVIEW)
                 .status(INITIAL_STATUS)
                 .build();
 

@@ -6,6 +6,8 @@ import offeria.rfq_service.domain.entity.Contract;
 import offeria.rfq_service.domain.entity.Project;
 import offeria.rfq_service.domain.entity.Rfq;
 import offeria.rfq_service.domain.entity.WorkLocation;
+import offeria.rfq_service.domain.enums.IntakeSource;
+import offeria.rfq_service.domain.enums.IntakeStatus;
 import offeria.rfq_service.messaging.RfqProducer;
 import offeria.rfq_service.repository.AttentionContactRepository;
 import offeria.rfq_service.repository.ClientRepository;
@@ -273,6 +275,14 @@ class RfqServiceTest {
         assertEquals(
                 "PENDING",
                 saved.getStatus()
+        );
+        assertEquals(
+                IntakeSource.MANUAL,
+                saved.getIntakeSource()
+        );
+        assertEquals(
+                IntakeStatus.PENDING_REVIEW,
+                saved.getIntakeStatus()
         );
 
         verify(rfqProducer)
